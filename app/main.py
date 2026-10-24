@@ -4,10 +4,12 @@ from fastapi.responses import JSONResponse
 from app.common.exceptions import AppError
 from app.core.config import settings
 from app.modules.auth.router import router as auth_router
+from app.modules.users.router import router as users_router
 
 app = FastAPI(title=settings.PROJECT_NAME, debug=settings.DEBUG)
 
 app.include_router(auth_router, prefix=settings.API_V1_PREFIX)
+app.include_router(users_router, prefix=settings.API_V1_PREFIX)
 
 
 @app.exception_handler(AppError)
