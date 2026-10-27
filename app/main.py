@@ -8,6 +8,7 @@ from app.modules.users.router import router as users_router
 from app.modules.teams.router import router as teams_router
 from app.modules.projects.router import router as projects_router
 from app.modules.tasks.router import router as tasks_router
+from app.modules.comments.router import router as comments_router
 
 app = FastAPI(title=settings.PROJECT_NAME, debug=settings.DEBUG)
 
@@ -16,6 +17,7 @@ app.include_router(users_router, prefix=settings.API_V1_PREFIX)
 app.include_router(teams_router, prefix=settings.API_V1_PREFIX)
 app.include_router(projects_router, prefix=settings.API_V1_PREFIX)
 app.include_router(tasks_router, prefix=settings.API_V1_PREFIX)
+app.include_router(comments_router, prefix=settings.API_V1_PREFIX)
 
 
 @app.exception_handler(AppError)
