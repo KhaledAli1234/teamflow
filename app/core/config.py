@@ -1,9 +1,11 @@
+from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
+    ENVIRONMENT: str = "development"
     PROJECT_NAME: str = "TeamFlow"
     API_V1_PREFIX: str = "/api/v1"
     DEBUG: bool = False
@@ -11,7 +13,16 @@ class Settings(BaseSettings):
     DATABASE_URL: str
     SECRET_KEY: str
     ALGORITHM: str = "HS256"
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 15
+    REFRESH_TOKEN_EXPIRE_DAYS: int = 7
+
+    @model_validator(mode="after")
+    def check_secret_key(self):
+        if len(self.SECRET_KEY) < 32:
+            raise ValueError("SECRET_KEY must be at least 32 characters")
+        if self.ENVIRONMENT == "production" and self.SECRET_KEY.startswith("change-me"):
+            raise ValueError("Set a real SECRET_KEY in production")
+        return self
 
 
 settings = Settings()

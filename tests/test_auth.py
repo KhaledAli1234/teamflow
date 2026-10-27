@@ -2,7 +2,7 @@ REGISTER_URL = "/api/v1/auth/register"
 LOGIN_URL = "/api/v1/auth/login"
 ME_URL = "/api/v1/users/me"
 
-USER = {"email": "khaled@example.com", "full_name": "Khaled", "password": "12345678"}
+USER = {"email": "khaled@example.com", "full_name": "Khaled", "password": "Sup3r-Secret-Pass"}
 
 
 def register(client, **overrides):

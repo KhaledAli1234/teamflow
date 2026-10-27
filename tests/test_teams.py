@@ -4,10 +4,10 @@ API = "/api/v1"
 def make_user(client, email, name="User"):
     client.post(
         f"{API}/auth/register",
-        json={"email": email, "full_name": name, "password": "12345678"},
+        json={"email": email, "full_name": name, "password": "Sup3r-Secret-Pass"},
     )
     token = client.post(
-        f"{API}/auth/login", data={"username": email, "password": "12345678"}
+        f"{API}/auth/login", data={"username": email, "password": "Sup3r-Secret-Pass"}
     ).json()["access_token"]
     return {"Authorization": f"Bearer {token}"}
 
