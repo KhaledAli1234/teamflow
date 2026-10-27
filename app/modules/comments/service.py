@@ -1,14 +1,15 @@
 from sqlalchemy.orm import Session
 
 from app.common.exceptions import ForbiddenError, NotFoundError
+from app.modules.activity import service as activity
 from app.modules.comments import repository
 from app.modules.comments.models import Comment
 from app.modules.comments.schemas import CommentCreate
+from app.modules.notifications import service as notifications
 from app.modules.projects import service as projects_service
 from app.modules.tasks import service as tasks_service
 from app.modules.teams import repository as teams_repository
 from app.modules.users.models import User
-from app.modules.activity import service as activity
 
 
 def add_comment(db: Session, task_id: int, data: CommentCreate, user: User) -> Comment:
@@ -23,8 +24,18 @@ def add_comment(db: Session, task_id: int, data: CommentCreate, user: User) -> C
         entity_id=comment.id,
         details={"task_id": task.id},
     )
+    recipients = {task.assignee_id, task.created_by} - {None, user.id}
+    for recipient in recipients:
+        notifications.notify(
+            db,
+            user_id=recipient,
+            type="comment.added",
+            message=f"New comment on: {task.title}",
+            data={"task_id": task.id, "comment_id": comment.id},
+        )
     db.commit()
     return comment
+
 
 def list_comments(db: Session, task_id: int, user: User) -> list[Comment]:
     tasks_service.get_task(db, task_id, user)

@@ -10,6 +10,7 @@ from app.modules.tasks.schemas import TaskCreate, TaskPage, TaskStatusUpdate, Ta
 from app.modules.teams import repository as teams_repository
 from app.modules.users.models import User
 from app.modules.activity import service as activity
+from app.modules.notifications import service as notifications
 
 
 def _is_manager(db: Session, project: Project, user: User) -> bool:
@@ -53,6 +54,14 @@ def create_task(db: Session, project_id: int, data: TaskCreate, user: User) -> T
         entity_id=task.id,
         details={"title": task.title, "assignee_id": task.assignee_id},
     )
+    if task.assignee_id and task.assignee_id != user.id:
+        notifications.notify(
+            db,
+            user_id=task.assignee_id,
+            type="task.assigned",
+            message=f"You were assigned: {task.title}",
+            data={"task_id": task.id, "project_id": project_id},
+        )
     db.commit()
     return task
 
@@ -103,6 +112,15 @@ def update_task(db: Session, task_id: int, data: TaskUpdate, user: User) -> Task
                 entity_id=task.id,
                 details={"from": task.assignee_id, "to": changes["assignee_id"]},
             )
+            new_assignee = changes["assignee_id"]
+            if new_assignee and new_assignee != user.id:
+                notifications.notify(
+                    db,
+                    user_id=new_assignee,
+                    type="task.assigned",
+                    message=f"You were assigned: {task.title}",
+                    data={"task_id": task.id, "project_id": project.id},
+                )
     return repository.update_task(db, task, changes)
 
 def change_status(db: Session, task_id: int, data: TaskStatusUpdate, user: User) -> Task:
