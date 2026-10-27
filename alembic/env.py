@@ -11,6 +11,7 @@ from app.modules.teams import models as teams_models  # noqa: F401
 from app.modules.projects import models as projects_models  # noqa: F401
 from app.modules.tasks import models as tasks_models  # noqa: F401
 from app.modules.comments import models as comments_models  # noqa: F401
+from app.modules.activity import models as activity_models  # noqa: F401
 
 config = context.config
 config.set_main_option("sqlalchemy.url", settings.DATABASE_URL)

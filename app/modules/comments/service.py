@@ -8,12 +8,23 @@ from app.modules.projects import service as projects_service
 from app.modules.tasks import service as tasks_service
 from app.modules.teams import repository as teams_repository
 from app.modules.users.models import User
+from app.modules.activity import service as activity
 
 
 def add_comment(db: Session, task_id: int, data: CommentCreate, user: User) -> Comment:
     task = tasks_service.get_task(db, task_id, user)
-    return repository.create(db, task_id=task.id, author_id=user.id, body=data.body)
-
+    comment = repository.create(db, task_id=task.id, author_id=user.id, body=data.body)
+    activity.log(
+        db,
+        project_id=task.project_id,
+        actor_id=user.id,
+        action="comment.added",
+        entity_type="comment",
+        entity_id=comment.id,
+        details={"task_id": task.id},
+    )
+    db.commit()
+    return comment
 
 def list_comments(db: Session, task_id: int, user: User) -> list[Comment]:
     tasks_service.get_task(db, task_id, user)
