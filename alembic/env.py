@@ -7,6 +7,7 @@ from app.core.config import settings
 from app.db.base import Base
 
 from app.modules.users import models as users_models  # noqa: F401
+from app.modules.teams import models as teams_models  # noqa: F401
 
 config = context.config
 config.set_main_option("sqlalchemy.url", settings.DATABASE_URL)

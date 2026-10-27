@@ -1,13 +1,14 @@
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
 
 from app.core.config import settings
 from app.db.base import Base
 from app.db.session import get_db
 from app.main import app
-from app.modules.users import models  # noqa: F401
+from app.modules.teams import models as teams_models  # noqa: F401
+from app.modules.users import models as users_models  # noqa: F401
 
 TEST_DATABASE_URL = settings.DATABASE_URL.rsplit("/", 1)[0] + "/teamflow_test"
 
@@ -29,9 +30,9 @@ def db():
         yield session
     finally:
         session.close()
+        table_names = ", ".join(t.name for t in Base.metadata.sorted_tables)
         with engine.begin() as conn:
-            for table in reversed(Base.metadata.sorted_tables):
-                conn.execute(table.delete())
+            conn.execute(text(f"TRUNCATE {table_names} RESTART IDENTITY CASCADE"))
 
 
 @pytest.fixture
