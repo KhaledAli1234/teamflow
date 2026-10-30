@@ -42,7 +42,7 @@ jobs:
       - name: Lint with ruff
         run: |
           pip install ruff
-          ruff check app
+          ruff check app tests
 
       - name: Setup test database
         run: |

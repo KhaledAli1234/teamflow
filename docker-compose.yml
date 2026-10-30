@@ -1,3 +1,14 @@
+x-app-env: &app-env
+  ENVIRONMENT: production
+  DATABASE_URL: postgresql+psycopg://teamflow:teamflow_pass@db:5432/teamflow
+  SECRET_KEY: local-docker-dev-secret-key-0123456789abcdef
+  FRONTEND_URL: http://localhost:3000
+  REDIS_URL: redis://redis:6379/0
+  SMTP_HOST: mailpit
+  SMTP_PORT: "1025"
+  SMTP_USE_TLS: "false"
+  EMAIL_FROM: "TeamFlow <no-reply@teamflow.local>"
+
 services:
   db:
     image: postgres:16
@@ -40,13 +51,28 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      redis:
+        condition: service_healthy
+      mailpit:
+        condition: service_started
     ports:
       - "8000:8000"
     environment:
-      - ENVIRONMENT=production
-      - DATABASE_URL=postgresql+psycopg://teamflow:teamflow_pass@db:5432/teamflow
-      - SECRET_KEY=change-me-to-a-super-secret-key-32-chars-min!
-      - FRONTEND_URL=http://localhost:3000
+      <<: *app-env
+
+  worker:
+    build: .
+    container_name: teamflow_worker
+    command: celery -A app.core.celery_app worker --loglevel=info
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      mailpit:
+        condition: service_started
+    environment:
+      <<: *app-env
 
 volumes:
   pgdata:
