@@ -1,3 +1,5 @@
+import logging
+
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
@@ -20,13 +22,26 @@ from slowapi.middleware import SlowAPIMiddleware
 from app.core.rate_limit import limiter
 
 from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
+from app.db.session import SessionLocal
 
 from app.core.logging import setup_logging
 from app.core.middleware import RequestLoggingMiddleware, SecurityHeadersMiddleware
 
+logger = logging.getLogger("app.error")
+
 setup_logging(settings.DEBUG)
-app = FastAPI(title=settings.PROJECT_NAME, debug=settings.DEBUG)
+app = FastAPI(
+    title=settings.PROJECT_NAME,
+    description=(
+        "TeamFlow is a project & task management API inspired by Trello/Jira. "
+        "Features: JWT auth with refresh-token rotation, team/project/task hierarchy, "
+        "real-time activity log, in-app notifications, and a live dashboard."
+    ),
+    version="1.0.0",
+    debug=settings.DEBUG,
+)
 
 app.state.limiter = limiter
 limiter.enabled = settings.RATE_LIMIT_ENABLED
@@ -55,12 +70,29 @@ app.include_router(notifications_router, prefix=settings.API_V1_PREFIX)
 
 @app.exception_handler(AppError)
 def app_error_handler(request: Request, exc: AppError):
-    return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail})
+    headers = {}
+    if exc.status_code == 401:
+        headers["WWW-Authenticate"] = "Bearer"
+    return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail}, headers=headers)
+
 
 @app.exception_handler(IntegrityError)
 def integrity_error_handler(request: Request, exc: IntegrityError):
     return JSONResponse(status_code=409, content={"detail": "Conflict: duplicate or invalid reference"})
 
-@app.get("/health")
+
+@app.exception_handler(Exception)
+def unhandled_exception_handler(request: Request, exc: Exception):
+    """Catch-all handler — prevents stack traces from leaking in responses."""
+    logger.exception("Unhandled error on %s %s", request.method, request.url.path)
+    return JSONResponse(status_code=500, content={"detail": "Internal server error"})
+
+
+@app.get("/health", tags=["health"], summary="Health check")
 def health():
-    return {"status": "ok"}
+    try:
+        with SessionLocal() as db:
+            db.execute(text("SELECT 1"))
+    except Exception:
+        return JSONResponse(status_code=503, content={"status": "error", "detail": "database unavailable"})
+    return {"status": "ok"}

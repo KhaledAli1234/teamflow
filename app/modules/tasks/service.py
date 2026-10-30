@@ -63,6 +63,7 @@ def create_task(db: Session, project_id: int, data: TaskCreate, user: User) -> T
             data={"task_id": task.id, "project_id": project_id},
         )
     db.commit()
+    db.refresh(task)
     return task
 
 def list_tasks(
@@ -121,7 +122,10 @@ def update_task(db: Session, task_id: int, data: TaskUpdate, user: User) -> Task
                     message=f"You were assigned: {task.title}",
                     data={"task_id": task.id, "project_id": project.id},
                 )
-    return repository.update_task(db, task, changes)
+    updated = repository.update_task(db, task, changes)
+    db.commit()
+    db.refresh(updated)
+    return updated
 
 def change_status(db: Session, task_id: int, data: TaskStatusUpdate, user: User) -> Task:
     task, project = _get_task_and_project(db, task_id, user)
@@ -137,9 +141,13 @@ def change_status(db: Session, task_id: int, data: TaskStatusUpdate, user: User)
         entity_id=task.id,
         details={"from": old_status, "to": data.status.value},
     )
-    return repository.update_task(db, task, {"status": data.status})
+    updated = repository.update_task(db, task, {"status": data.status})
+    db.commit()
+    db.refresh(updated)
+    return updated
 
 def delete_task(db: Session, task_id: int, user: User) -> None:
     task, project = _get_task_and_project(db, task_id, user)
     _require_manager(db, project, user)
     repository.delete_task(db, task)
+    db.commit()

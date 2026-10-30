@@ -1,7 +1,9 @@
 from sqlalchemy.orm import Session
 
+from app.common.schemas import Page
 from app.modules.activity import repository
 from app.modules.activity.models import ActivityLog
+from app.modules.activity.schemas import ActivityRead
 from app.modules.projects import service as projects_service
 from app.modules.users.models import User
 
@@ -30,6 +32,12 @@ def log(
     )
 
 
-def list_project_activity(db: Session, project_id: int, user: User) -> list[ActivityLog]:
+def list_project_activity(
+    db: Session, project_id: int, user: User, *, page: int = 1, page_size: int = 20
+) -> Page[ActivityRead]:
     projects_service.get_accessible_project(db, project_id, user)
-    return repository.list_for_project(db, project_id)
+    all_logs = repository.list_for_project(db, project_id)
+    total = len(all_logs)
+    start = (page - 1) * page_size
+    items = all_logs[start : start + page_size]
+    return Page(items=items, total=total, page=page, page_size=page_size)

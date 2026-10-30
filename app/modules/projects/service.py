@@ -1,6 +1,6 @@
 from sqlalchemy.orm import Session
 
-from app.common.exceptions import ConflictError, ForbiddenError, NotFoundError
+from app.common.exceptions import AppError, ConflictError, ForbiddenError, NotFoundError
 from app.modules.projects import repository
 from app.modules.projects.models import Project, ProjectMember
 from app.modules.projects.schemas import ProjectCreate, ProjectMemberAdd, ProjectUpdate
@@ -27,7 +27,7 @@ def _get_project_or_404(db: Session, project_id: int) -> Project:
 
 
 def get_accessible_project(db: Session, project_id: int, user: User) -> Project:
-    """المشروع يظهر لأدمن/مدير الفريق، أو لعضو المشروع. غير كده 404."""
+    """Project is accessible to team manager/admin or assigned project member."""
     project = _get_project_or_404(db, project_id)
     team_member = teams_repository.get_membership(db, project.team_id, user.id)
     if not team_member:
@@ -41,9 +41,12 @@ def get_accessible_project(db: Session, project_id: int, user: User) -> Project:
 
 def create_project(db: Session, team_id: int, data: ProjectCreate, user: User) -> Project:
     _require_manager(db, team_id, user)
-    return repository.create_project(
+    project = repository.create_project(
         db, team_id=team_id, created_by=user.id, data=data.model_dump()
     )
+    db.commit()
+    db.refresh(project)
+    return project
 
 
 def list_projects(db: Session, team_id: int, user: User) -> list[Project]:
@@ -60,14 +63,18 @@ def update_project(db: Session, project_id: int, data: ProjectUpdate, user: User
     start = changes.get("start_date", project.start_date)
     due = changes.get("due_date", project.due_date)
     if start and due and due < start:
-        raise ForbiddenError("due_date cannot be before start_date")
-    return repository.update_project(db, project, changes)
+        raise AppError("due_date cannot be before start_date")
+    updated = repository.update_project(db, project, changes)
+    db.commit()
+    db.refresh(updated)
+    return updated
 
 
 def delete_project(db: Session, project_id: int, user: User) -> None:
     project = _get_project_or_404(db, project_id)
     _require_manager(db, project.team_id, user)
     repository.delete_project(db, project)
+    db.commit()
 
 
 def list_members(db: Session, project_id: int, user: User) -> list[ProjectMember]:
@@ -83,13 +90,23 @@ def add_member(db: Session, project_id: int, data: ProjectMemberAdd, user: User)
         raise NotFoundError("User is not a member of this team")
     if repository.get_membership(db, project_id, target.id):
         raise ConflictError("User is already on this project")
-    return repository.add_member(db, project_id=project_id, user_id=target.id)
+    member = repository.add_member(db, project_id=project_id, user_id=target.id)
+    db.commit()
+    db.refresh(member)
+    return member
 
 
 def remove_member(db: Session, project_id: int, target_user_id: int, user: User) -> None:
     project = _get_project_or_404(db, project_id)
-    _require_manager(db, project.team_id, user)
+    team_membership = teams_repository.get_membership(db, project.team_id, user.id)
+    if not team_membership:
+        raise NotFoundError("Project not found")
+    # Members can remove themselves (self-leave). Managers can remove anyone.
+    is_manager = team_membership.role in MANAGER_ROLES
+    if target_user_id != user.id and not is_manager:
+        raise ForbiddenError("Only managers can remove other members")
     member = repository.get_membership(db, project_id, target_user_id)
     if not member:
         raise NotFoundError("Member not found")
     repository.delete_member(db, member)
+    db.commit()

@@ -21,8 +21,7 @@ def get(db: Session, notification_id: int) -> Notification | None:
 
 def mark_read(db: Session, notification: Notification) -> Notification:
     notification.is_read = True
-    db.commit()
-    db.refresh(notification)
+    db.flush()
     return notification
 
 
@@ -32,5 +31,5 @@ def mark_all_read(db: Session, user_id: int) -> int:
         .where(Notification.user_id == user_id, Notification.is_read.is_(False))
         .values(is_read=True)
     )
-    db.commit()
+    db.flush()
     return result.rowcount

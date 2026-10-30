@@ -1,6 +1,6 @@
 from sqlalchemy.orm import Session
 
-from app.common.exceptions import ForbiddenError
+from app.common.exceptions import ForbiddenError, NotFoundError
 from app.modules.dashboard import repository
 from app.modules.dashboard.schemas import (
     MemberWorkload,
@@ -13,7 +13,7 @@ from app.modules.teams import service as teams_service
 from app.modules.users.models import User
 
 
-def _progress(row) -> ProjectProgress:
+def _progress(row: tuple[int, str, int, int, int]) -> ProjectProgress:
     project_id, name, total, done, overdue = row
     percent = round(done / total * 100, 1) if total else 0.0
     return ProjectProgress(
@@ -48,4 +48,7 @@ def team_dashboard(db: Session, team_id: int, user: User) -> TeamDashboard:
 
 def project_progress(db: Session, project_id: int, user: User) -> ProjectProgress:
     projects_service.get_accessible_project(db, project_id, user)
-    return _progress(repository.project_progress(db, project_id=project_id)[0])
+    progress_rows = repository.project_progress(db, project_id=project_id)
+    if not progress_rows:
+        raise NotFoundError("Project progress not found")
+    return _progress(progress_rows[0])

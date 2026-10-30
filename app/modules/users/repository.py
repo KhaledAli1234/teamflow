@@ -15,6 +15,5 @@ def get_by_email(db: Session, email: str) -> User | None:
 def create(db: Session, *, email: str, full_name: str, hashed_password: str) -> User:
     user = User(email=email, full_name=full_name, hashed_password=hashed_password)
     db.add(user)
-    db.commit()
-    db.refresh(user)
+    db.flush()
     return user

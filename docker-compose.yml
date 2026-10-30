@@ -10,6 +10,25 @@ services:
       - "5433:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U teamflow -d teamflow"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build: .
+    container_name: teamflow_api
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "8000:8000"
+    environment:
+      - ENVIRONMENT=production
+      - DATABASE_URL=postgresql+psycopg://teamflow:teamflow_pass@db:5432/teamflow
+      - SECRET_KEY=change-me-to-a-super-secret-key-32-chars-min!
+      - FRONTEND_URL=http://localhost:3000
 
 volumes:
   pgdata:

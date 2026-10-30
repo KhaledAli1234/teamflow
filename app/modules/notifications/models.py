@@ -15,7 +15,7 @@ class Notification(Base):
     type: Mapped[str] = mapped_column(String(50))
     message: Mapped[str] = mapped_column(String(255))
     data: Mapped[dict | None] = mapped_column(JSON, nullable=True)
-    is_read: Mapped[bool] = mapped_column(Boolean, default=False)
+    is_read: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )

@@ -6,20 +6,24 @@ from app.modules.tasks.models import TaskPriority, TaskStatus
 
 
 class TaskCreate(BaseModel):
+    model_config = ConfigDict(str_strip_whitespace=True)
+
     title: str = Field(min_length=1, max_length=200)
-    description: str | None = None
+    description: str | None = Field(default=None, max_length=10000)
     priority: TaskPriority = TaskPriority.MEDIUM
     due_date: date | None = None
-    assignee_id: int | None = None
+    assignee_id: int | None = Field(default=None, gt=0)
 
 
 class TaskUpdate(BaseModel):
+    model_config = ConfigDict(str_strip_whitespace=True)
+
     title: str | None = Field(default=None, min_length=1, max_length=200)
-    description: str | None = None
+    description: str | None = Field(default=None, max_length=10000)
     status: TaskStatus | None = None
     priority: TaskPriority | None = None
     due_date: date | None = None
-    assignee_id: int | None = None
+    assignee_id: int | None = Field(default=None, gt=0)
 
 
 class TaskStatusUpdate(BaseModel):

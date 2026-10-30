@@ -20,6 +20,9 @@ router = APIRouter(tags=["projects"])
     "/teams/{team_id}/projects",
     response_model=ProjectRead,
     status_code=status.HTTP_201_CREATED,
+    summary="Create a project",
+    description="Only team ADMINs or PROJECT_MANAGERs can create projects. "
+                "The creator is automatically added as a project member.",
 )
 def create_project(
     team_id: int,
@@ -30,21 +33,36 @@ def create_project(
     return service.create_project(db, team_id, data, user)
 
 
-@router.get("/teams/{team_id}/projects", response_model=list[ProjectRead])
+@router.get(
+    "/teams/{team_id}/projects",
+    response_model=list[ProjectRead],
+    summary="List projects in a team",
+    description="Managers/admins see all projects. Regular members see only projects they are assigned to.",
+)
 def list_projects(
     team_id: int, db: Session = Depends(get_db), user: User = Depends(get_current_user)
 ):
     return service.list_projects(db, team_id, user)
 
 
-@router.get("/projects/{project_id}", response_model=ProjectRead)
+@router.get(
+    "/projects/{project_id}",
+    response_model=ProjectRead,
+    summary="Get a project",
+    responses={404: {"description": "Project not found or not accessible"}},
+)
 def get_project(
     project_id: int, db: Session = Depends(get_db), user: User = Depends(get_current_user)
 ):
     return service.get_accessible_project(db, project_id, user)
 
 
-@router.patch("/projects/{project_id}", response_model=ProjectRead)
+@router.patch(
+    "/projects/{project_id}",
+    response_model=ProjectRead,
+    summary="Update a project",
+    description="Only team admins and project managers can update a project.",
+)
 def update_project(
     project_id: int,
     data: ProjectUpdate,
@@ -54,7 +72,12 @@ def update_project(
     return service.update_project(db, project_id, data, user)
 
 
-@router.delete("/projects/{project_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete(
+    "/projects/{project_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Delete a project",
+    description="Only team admins and project managers can delete a project. Cascades to tasks and comments.",
+)
 def delete_project(
     project_id: int, db: Session = Depends(get_db), user: User = Depends(get_current_user)
 ):
@@ -62,7 +85,11 @@ def delete_project(
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
-@router.get("/projects/{project_id}/members", response_model=list[ProjectMemberRead])
+@router.get(
+    "/projects/{project_id}/members",
+    response_model=list[ProjectMemberRead],
+    summary="List project members",
+)
 def list_members(
     project_id: int, db: Session = Depends(get_db), user: User = Depends(get_current_user)
 ):
@@ -73,6 +100,8 @@ def list_members(
     "/projects/{project_id}/members",
     response_model=ProjectMemberRead,
     status_code=status.HTTP_201_CREATED,
+    summary="Add a project member",
+    description="Only team admins and project managers can add members. The user must already be a team member.",
 )
 def add_member(
     project_id: int,
@@ -84,7 +113,10 @@ def add_member(
 
 
 @router.delete(
-    "/projects/{project_id}/members/{user_id}", status_code=status.HTTP_204_NO_CONTENT
+    "/projects/{project_id}/members/{user_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Remove a project member",
+    description="Team admins/project managers can remove anyone. Members can remove themselves (self-leave).",
 )
 def remove_member(
     project_id: int,

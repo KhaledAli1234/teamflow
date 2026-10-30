@@ -7,8 +7,7 @@ from app.modules.tasks.models import Task, TaskPriority, TaskStatus
 def create_task(db: Session, *, project_id: int, created_by: int, data: dict) -> Task:
     task = Task(project_id=project_id, created_by=created_by, **data)
     db.add(task)
-    db.commit()
-    db.refresh(task)
+    db.flush()
     return task
 
 
@@ -35,7 +34,8 @@ def list_tasks(
     if assignee_id:
         conditions.append(Task.assignee_id == assignee_id)
     if search:
-        conditions.append(Task.title.ilike(f"%{search}%"))
+        escaped_search = search.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+        conditions.append(Task.title.ilike(f"%{escaped_search}%"))
 
     total = db.scalar(select(func.count()).select_from(Task).where(*conditions)) or 0
     items = db.scalars(
@@ -51,11 +51,10 @@ def list_tasks(
 def update_task(db: Session, task: Task, data: dict) -> Task:
     for key, value in data.items():
         setattr(task, key, value)
-    db.commit()
-    db.refresh(task)
+    db.flush()
     return task
 
 
 def delete_task(db: Session, task: Task) -> None:
     db.delete(task)
-    db.commit()
+    db.flush()

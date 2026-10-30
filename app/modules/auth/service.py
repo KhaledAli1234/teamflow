@@ -83,6 +83,8 @@ def refresh(db: Session, raw_token: str) -> Token:
     user = users_repository.get_by_id(db, stored.user_id)
     if not user or not user.is_active:
         raise UnauthorizedError("Invalid refresh token")
+    if user.locked_until and user.locked_until > now:
+        raise UnauthorizedError("Account temporarily locked. Try again later.")
 
     stored.revoked_at = now
     tokens = _issue_tokens(db, user.id, family_id=stored.family_id)
@@ -114,9 +116,11 @@ def change_password(db: Session, user: User, data: ChangePasswordRequest) -> Non
 
 def forgot_password(db: Session, email: str) -> None:
     user = users_repository.get_by_email(db, email.strip().lower())
-    if not user or not user.is_active:
-        return  # نفس الرد دايمًا، علشان ما نكشفش الإيميلات
     now = _now()
+    if not user or not user.is_active:
+        # Equalize timing to defend against user enumeration
+        hash_token(email)
+        return
     repository.invalidate_reset_tokens(db, user.id, now)
     raw, token_hash = generate_refresh_token()
     repository.create_reset_token(

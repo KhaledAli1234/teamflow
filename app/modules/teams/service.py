@@ -1,9 +1,10 @@
 from sqlalchemy.orm import Session
 
 from app.common.exceptions import ConflictError, ForbiddenError, NotFoundError
+from app.common.schemas import Page
 from app.modules.teams import repository
 from app.modules.teams.models import Team, TeamMember, TeamRole
-from app.modules.teams.schemas import MemberAdd, TeamCreate, TeamUpdate
+from app.modules.teams.schemas import MemberAdd, MemberRead, TeamCreate, TeamRead, TeamUpdate
 from app.modules.users import repository as users_repository
 from app.modules.users.models import User
 
@@ -32,13 +33,22 @@ def require_admin(db: Session, team_id: int, user: User) -> TeamMember:
 
 
 def create_team(db: Session, data: TeamCreate, user: User) -> Team:
-    return repository.create_team(
+    team = repository.create_team(
         db, name=data.name, description=data.description, created_by=user.id
     )
+    db.commit()
+    db.refresh(team)
+    return team
 
 
-def list_my_teams(db: Session, user: User) -> list[Team]:
-    return repository.list_teams_for_user(db, user.id)
+def list_my_teams(
+    db: Session, user: User, *, page: int = 1, page_size: int = 20
+) -> Page[TeamRead]:
+    all_teams = repository.list_teams_for_user(db, user.id)
+    total = len(all_teams)
+    start = (page - 1) * page_size
+    items = all_teams[start : start + page_size]
+    return Page(items=items, total=total, page=page, page_size=page_size)
 
 
 def get_team(db: Session, team_id: int, user: User) -> Team:
@@ -49,17 +59,27 @@ def get_team(db: Session, team_id: int, user: User) -> Team:
 def update_team(db: Session, team_id: int, data: TeamUpdate, user: User) -> Team:
     require_admin(db, team_id, user)
     team = _get_team_or_404(db, team_id)
-    return repository.update_team(db, team, data.model_dump(exclude_unset=True))
+    updated = repository.update_team(db, team, data.model_dump(exclude_unset=True))
+    db.commit()
+    db.refresh(updated)
+    return updated
 
 
 def delete_team(db: Session, team_id: int, user: User) -> None:
     require_admin(db, team_id, user)
     repository.delete_team(db, _get_team_or_404(db, team_id))
+    db.commit()
 
 
-def list_members(db: Session, team_id: int, user: User) -> list[TeamMember]:
+def list_members(
+    db: Session, team_id: int, user: User, *, page: int = 1, page_size: int = 20
+) -> Page[MemberRead]:
     require_member(db, team_id, user)
-    return repository.list_members(db, team_id)
+    all_members = repository.list_members(db, team_id)
+    total = len(all_members)
+    start = (page - 1) * page_size
+    items = all_members[start : start + page_size]
+    return Page(items=items, total=total, page=page, page_size=page_size)
 
 
 def add_member(db: Session, team_id: int, data: MemberAdd, user: User) -> TeamMember:
@@ -69,34 +89,41 @@ def add_member(db: Session, team_id: int, data: MemberAdd, user: User) -> TeamMe
         raise NotFoundError("User not found")
     if repository.get_membership(db, team_id, target.id):
         raise ConflictError("User is already a member")
-    return repository.add_member(db, team_id=team_id, user_id=target.id, role=data.role)
-
-
-def _admin_count(db: Session, team_id: int) -> int:
-    return sum(1 for m in repository.list_members(db, team_id) if m.role == TeamRole.ADMIN)
+    member = repository.add_member(db, team_id=team_id, user_id=target.id, role=data.role)
+    db.commit()
+    db.refresh(member)
+    return member
 
 
 def change_role(
     db: Session, team_id: int, target_user_id: int, role: TeamRole, user: User
 ) -> TeamMember:
     require_admin(db, team_id, user)
-    member = repository.get_membership(db, team_id, target_user_id)
+    member = repository.get_membership(db, team_id, target_user_id, for_update=True)
     if not member:
         raise NotFoundError("Member not found")
-    if member.role == TeamRole.ADMIN and role != TeamRole.ADMIN and _admin_count(db, team_id) == 1:
-        raise ForbiddenError("Team must keep at least one admin")
+    if member.role == TeamRole.ADMIN and role != TeamRole.ADMIN:
+        admin_count = repository.count_admins(db, team_id, for_update=True)
+        if admin_count <= 1:
+            raise ForbiddenError("Team must keep at least one admin")
     member.role = role
-    return repository.save(db, member)
+    saved = repository.save(db, member)
+    db.commit()
+    db.refresh(saved)
+    return saved
 
 
 def remove_member(db: Session, team_id: int, target_user_id: int, user: User) -> None:
     membership = require_member(db, team_id, user)
-    # الأدمن يشيل أي حد، والعضو يقدر يشيل نفسه (يغادر)
+    # Admin can remove anyone, member can remove themselves
     if target_user_id != user.id and membership.role != TeamRole.ADMIN:
         raise ForbiddenError("Only team admins can remove members")
-    member = repository.get_membership(db, team_id, target_user_id)
+    member = repository.get_membership(db, team_id, target_user_id, for_update=True)
     if not member:
         raise NotFoundError("Member not found")
-    if member.role == TeamRole.ADMIN and _admin_count(db, team_id) == 1:
-        raise ForbiddenError("Team must keep at least one admin")
+    if member.role == TeamRole.ADMIN:
+        admin_count = repository.count_admins(db, team_id, for_update=True)
+        if admin_count <= 1:
+            raise ForbiddenError("Team must keep at least one admin")
     repository.delete_member(db, member)
+    db.commit()

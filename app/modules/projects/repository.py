@@ -9,8 +9,7 @@ def create_project(db: Session, *, team_id: int, created_by: int, data: dict) ->
     db.add(project)
     db.flush()
     db.add(ProjectMember(project_id=project.id, user_id=created_by))
-    db.commit()
-    db.refresh(project)
+    db.flush()
     return project
 
 
@@ -51,24 +50,22 @@ def list_members(db: Session, project_id: int) -> list[ProjectMember]:
 def add_member(db: Session, *, project_id: int, user_id: int) -> ProjectMember:
     member = ProjectMember(project_id=project_id, user_id=user_id)
     db.add(member)
-    db.commit()
-    db.refresh(member)
+    db.flush()
     return member
 
 
 def delete_member(db: Session, member: ProjectMember) -> None:
     db.delete(member)
-    db.commit()
+    db.flush()
 
 
 def update_project(db: Session, project: Project, data: dict) -> Project:
     for key, value in data.items():
         setattr(project, key, value)
-    db.commit()
-    db.refresh(project)
+    db.flush()
     return project
 
 
 def delete_project(db: Session, project: Project) -> None:
     db.delete(project)
-    db.commit()
+    db.flush()

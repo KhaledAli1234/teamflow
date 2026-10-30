@@ -2,17 +2,22 @@ from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
+from app.common.schemas import Page, UserSummary
 from app.modules.teams.models import TeamRole
 
 
 class TeamCreate(BaseModel):
+    model_config = ConfigDict(str_strip_whitespace=True)
+
     name: str = Field(min_length=1, max_length=100)
-    description: str | None = None
+    description: str | None = Field(default=None, max_length=2000)
 
 
 class TeamUpdate(BaseModel):
+    model_config = ConfigDict(str_strip_whitespace=True)
+
     name: str | None = Field(default=None, min_length=1, max_length=100)
-    description: str | None = None
+    description: str | None = Field(default=None, max_length=2000)
 
 
 class TeamRead(BaseModel):
@@ -40,3 +45,8 @@ class MemberRead(BaseModel):
     user_id: int
     role: TeamRole
     joined_at: datetime
+    user: UserSummary
+
+
+TeamPage = Page[TeamRead]
+MemberPage = Page[MemberRead]

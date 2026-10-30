@@ -1,4 +1,4 @@
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.modules.teams.models import Team, TeamMember, TeamRole
@@ -9,8 +9,7 @@ def create_team(db: Session, *, name: str, description: str | None, created_by: 
     db.add(team)
     db.flush()
     db.add(TeamMember(team_id=team.id, user_id=created_by, role=TeamRole.ADMIN))
-    db.commit()
-    db.refresh(team)
+    db.flush()
     return team
 
 
@@ -28,45 +27,57 @@ def list_teams_for_user(db: Session, user_id: int) -> list[Team]:
     return list(db.scalars(stmt))
 
 
-def get_membership(db: Session, team_id: int, user_id: int) -> TeamMember | None:
-    return db.scalar(
-        select(TeamMember).where(
-            TeamMember.team_id == team_id, TeamMember.user_id == user_id
-        )
+def get_membership(
+    db: Session, team_id: int, user_id: int, *, for_update: bool = False
+) -> TeamMember | None:
+    stmt = select(TeamMember).where(
+        TeamMember.team_id == team_id, TeamMember.user_id == user_id
     )
+    if for_update:
+        stmt = stmt.with_for_update()
+    return db.scalar(stmt)
 
 
 def list_members(db: Session, team_id: int) -> list[TeamMember]:
     return list(db.scalars(select(TeamMember).where(TeamMember.team_id == team_id)))
 
 
+def count_admins(db: Session, team_id: int, *, for_update: bool = False) -> int:
+    stmt = select(TeamMember).where(
+        TeamMember.team_id == team_id, TeamMember.role == TeamRole.ADMIN
+    )
+    if for_update:
+        stmt = stmt.with_for_update()
+        return len(list(db.scalars(stmt)))
+    return db.scalar(select(func.count()).select_from(TeamMember).where(
+        TeamMember.team_id == team_id, TeamMember.role == TeamRole.ADMIN
+    )) or 0
+
+
 def add_member(db: Session, *, team_id: int, user_id: int, role: TeamRole) -> TeamMember:
     member = TeamMember(team_id=team_id, user_id=user_id, role=role)
     db.add(member)
-    db.commit()
-    db.refresh(member)
+    db.flush()
     return member
 
 
 def update_team(db: Session, team: Team, data: dict) -> Team:
     for key, value in data.items():
         setattr(team, key, value)
-    db.commit()
-    db.refresh(team)
+    db.flush()
     return team
 
 
 def delete_team(db: Session, team: Team) -> None:
     db.delete(team)
-    db.commit()
+    db.flush()
 
 
-def save(db: Session, obj):
-    db.commit()
-    db.refresh(obj)
+def save(db: Session, obj: TeamMember) -> TeamMember:
+    db.flush()
     return obj
 
 
 def delete_member(db: Session, member: TeamMember) -> None:
     db.delete(member)
-    db.commit()
+    db.flush()

@@ -34,6 +34,23 @@ class UserCreate(BaseModel):
     def strong_enough(cls, value: str) -> str:
         return validate_password_strength(value)
 
+class UserUpdate(BaseModel):
+    """Schema for PATCH /users/me — only non-sensitive fields."""
+
+    model_config = ConfigDict(str_strip_whitespace=True)
+
+    full_name: str | None = Field(default=None, min_length=1, max_length=100)
+
+    @field_validator("full_name")
+    @classmethod
+    def clean_name(cls, v: str | None) -> str | None:
+        if v is None:
+            return v
+        v = " ".join(v.split())
+        if not v:
+            raise ValueError("Name cannot be empty")
+        return v
+
 class UserRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
