@@ -22,6 +22,7 @@ class Settings(BaseSettings):
 
     PASSWORD_RESET_EXPIRE_MINUTES: int = 30
     FRONTEND_URL: str = "http://localhost:3000"
+    CORS_ORIGINS: list[str] = ["http://localhost:3000"]
 
     @model_validator(mode="after")
     def check_secret_key(self):

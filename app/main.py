@@ -19,12 +19,28 @@ from slowapi.middleware import SlowAPIMiddleware
 
 from app.core.rate_limit import limiter
 
+from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy.exc import IntegrityError
+
+from app.core.logging import setup_logging
+from app.core.middleware import RequestLoggingMiddleware, SecurityHeadersMiddleware
+
+setup_logging(settings.DEBUG)
 app = FastAPI(title=settings.PROJECT_NAME, debug=settings.DEBUG)
 
 app.state.limiter = limiter
 limiter.enabled = settings.RATE_LIMIT_ENABLED
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 app.add_middleware(SlowAPIMiddleware)
+app.add_middleware(SecurityHeadersMiddleware)
+app.add_middleware(RequestLoggingMiddleware)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=settings.CORS_ORIGINS,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 app.include_router(auth_router, prefix=settings.API_V1_PREFIX)
 app.include_router(users_router, prefix=settings.API_V1_PREFIX)
@@ -41,6 +57,9 @@ app.include_router(notifications_router, prefix=settings.API_V1_PREFIX)
 def app_error_handler(request: Request, exc: AppError):
     return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail})
 
+@app.exception_handler(IntegrityError)
+def integrity_error_handler(request: Request, exc: IntegrityError):
+    return JSONResponse(status_code=409, content={"detail": "Conflict: duplicate or invalid reference"})
 
 @app.get("/health")
 def health():
