@@ -1,33 +1,29 @@
 import logging
 
 from fastapi import FastAPI, Request
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-
-from app.common.exceptions import AppError
-from app.core.config import settings
-from app.modules.auth.router import router as auth_router
-from app.modules.users.router import router as users_router
-from app.modules.teams.router import router as teams_router
-from app.modules.projects.router import router as projects_router
-from app.modules.tasks.router import router as tasks_router
-from app.modules.comments.router import router as comments_router
-from app.modules.activity.router import router as activity_router
-from app.modules.dashboard.router import router as dashboard_router
-from app.modules.notifications.router import router as notifications_router
-
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
-
-from app.core.rate_limit import limiter
-
-from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
-from app.db.session import SessionLocal
 
+from app.common.exceptions import AppError
+from app.core.config import settings
 from app.core.logging import setup_logging
 from app.core.middleware import RequestLoggingMiddleware, SecurityHeadersMiddleware
+from app.core.rate_limit import limiter
+from app.db.session import SessionLocal
+from app.modules.activity.router import router as activity_router
+from app.modules.auth.router import router as auth_router
+from app.modules.comments.router import router as comments_router
+from app.modules.dashboard.router import router as dashboard_router
+from app.modules.notifications.router import router as notifications_router
+from app.modules.projects.router import router as projects_router
+from app.modules.tasks.router import router as tasks_router
+from app.modules.teams.router import router as teams_router
+from app.modules.users.router import router as users_router
 
 logger = logging.getLogger("app.error")
 

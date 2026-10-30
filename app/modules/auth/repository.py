@@ -3,9 +3,7 @@ from datetime import datetime
 from sqlalchemy import select, update
 from sqlalchemy.orm import Session
 
-from app.modules.auth.models import RefreshToken
-
-from app.modules.auth.models import PasswordResetToken
+from app.modules.auth.models import PasswordResetToken, RefreshToken
 
 
 def create(

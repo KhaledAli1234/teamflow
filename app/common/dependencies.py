@@ -21,7 +21,7 @@ def get_current_user(
         payload = decode_access_token(token)
         user_id = int(payload["sub"])
     except (InvalidTokenError, KeyError, ValueError):
-        raise UnauthorizedError("Invalid or expired token")
+        raise UnauthorizedError("Invalid or expired token") from None
 
     user = users_repository.get_by_id(db, user_id)
     if not user:

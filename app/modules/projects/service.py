@@ -4,9 +4,9 @@ from app.common.exceptions import AppError, ConflictError, ForbiddenError, NotFo
 from app.modules.projects import repository
 from app.modules.projects.models import Project, ProjectMember
 from app.modules.projects.schemas import ProjectCreate, ProjectMemberAdd, ProjectUpdate
+from app.modules.teams import repository as teams_repository
 from app.modules.teams import service as teams_service
 from app.modules.teams.models import TeamRole
-from app.modules.teams import repository as teams_repository
 from app.modules.users import repository as users_repository
 from app.modules.users.models import User
 

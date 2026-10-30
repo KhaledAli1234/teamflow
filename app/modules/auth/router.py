@@ -1,14 +1,11 @@
+from fastapi import APIRouter, Depends, Request, Response, status
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 
 from app.common.dependencies import get_current_user
+from app.core.rate_limit import limiter
 from app.db.session import get_db
 from app.modules.auth import service as auth_service
-from app.modules.users import service as users_service
-from app.modules.users.models import User
-from app.modules.users.schemas import UserCreate, UserRead
-from fastapi import APIRouter, Depends, Request, Response, status
-from app.core.rate_limit import limiter
 from app.modules.auth.schemas import (
     ChangePasswordRequest,
     ForgotPasswordRequest,
@@ -17,6 +14,9 @@ from app.modules.auth.schemas import (
     ResetPasswordRequest,
     Token,
 )
+from app.modules.users import service as users_service
+from app.modules.users.models import User
+from app.modules.users.schemas import UserCreate, UserRead
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 

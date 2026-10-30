@@ -1,7 +1,8 @@
-import uuid
-from datetime import datetime, timedelta, timezone
 import hashlib
 import secrets
+import uuid
+from datetime import datetime, timedelta, timezone
+
 import jwt
 from argon2 import PasswordHasher
 from argon2.exceptions import InvalidHashError, VerifyMismatchError

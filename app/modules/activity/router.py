@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 from app.common.dependencies import get_current_user
 from app.db.session import get_db
 from app.modules.activity import service
-from app.modules.activity.schemas import ActivityPage, ActivityRead
+from app.modules.activity.schemas import ActivityPage
 from app.modules.users.models import User
 
 router = APIRouter(tags=["activity"])

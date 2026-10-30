@@ -2,7 +2,6 @@ from fastapi import APIRouter, Depends, Query, Response, status
 from sqlalchemy.orm import Session
 
 from app.common.dependencies import get_current_user
-from app.common.schemas import Page
 from app.db.session import get_db
 from app.modules.teams import service
 from app.modules.teams.schemas import (

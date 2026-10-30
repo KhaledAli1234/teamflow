@@ -1,6 +1,6 @@
 from datetime import datetime
-from pydantic import field_validator
-from pydantic import BaseModel, ConfigDict, EmailStr, Field
+
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
 
 COMMON_PASSWORDS = {
     "password", "password1", "12345678", "123456789", "1234567890",

@@ -1,6 +1,4 @@
-from pydantic import BaseModel, Field
-
-from pydantic import EmailStr, field_validator
+from pydantic import BaseModel, EmailStr, Field, field_validator
 
 from app.modules.users.schemas import validate_password_strength
 

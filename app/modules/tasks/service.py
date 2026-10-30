@@ -1,6 +1,8 @@
 from sqlalchemy.orm import Session
 
 from app.common.exceptions import ForbiddenError, NotFoundError
+from app.modules.activity import service as activity
+from app.modules.notifications import service as notifications
 from app.modules.projects import repository as projects_repository
 from app.modules.projects import service as projects_service
 from app.modules.projects.models import Project
@@ -9,8 +11,6 @@ from app.modules.tasks.models import Task, TaskPriority, TaskStatus
 from app.modules.tasks.schemas import TaskCreate, TaskPage, TaskStatusUpdate, TaskUpdate
 from app.modules.teams import repository as teams_repository
 from app.modules.users.models import User
-from app.modules.activity import service as activity
-from app.modules.notifications import service as notifications
 
 
 def _is_manager(db: Session, project: Project, user: User) -> bool:
