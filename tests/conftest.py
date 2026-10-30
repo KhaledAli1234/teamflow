@@ -14,6 +14,7 @@ from app.modules.tasks import models as tasks_models  # noqa: F401
 from app.modules.comments import models as comments_models  # noqa: F401
 from app.modules.activity import models as activity_models  # noqa: F401
 from app.modules.notifications import models as notifications_models  # noqa: F401
+from app.modules.auth import models as auth_models  # noqa: F401
 
 TEST_DATABASE_URL = settings.DATABASE_URL.rsplit("/", 1)[0] + "/teamflow_test"
 

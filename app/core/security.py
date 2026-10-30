@@ -1,6 +1,7 @@
 import uuid
 from datetime import datetime, timedelta, timezone
-
+import hashlib
+import secrets
 import jwt
 from argon2 import PasswordHasher
 from argon2.exceptions import InvalidHashError, VerifyMismatchError
@@ -46,3 +47,11 @@ def decode_access_token(token: str) -> dict:
     if payload["type"] != "access":
         raise InvalidTokenError("Wrong token type")
     return payload
+
+def hash_token(raw_token: str) -> str:
+    return hashlib.sha256(raw_token.encode()).hexdigest()
+
+
+def generate_refresh_token() -> tuple[str, str]:
+    raw = secrets.token_urlsafe(48)
+    return raw, hash_token(raw)
