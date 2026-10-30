@@ -13,7 +13,18 @@ from app.modules.activity.router import router as activity_router
 from app.modules.dashboard.router import router as dashboard_router
 from app.modules.notifications.router import router as notifications_router
 
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from slowapi.middleware import SlowAPIMiddleware
+
+from app.core.rate_limit import limiter
+
 app = FastAPI(title=settings.PROJECT_NAME, debug=settings.DEBUG)
+
+app.state.limiter = limiter
+limiter.enabled = settings.RATE_LIMIT_ENABLED
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+app.add_middleware(SlowAPIMiddleware)
 
 app.include_router(auth_router, prefix=settings.API_V1_PREFIX)
 app.include_router(users_router, prefix=settings.API_V1_PREFIX)

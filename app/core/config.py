@@ -16,6 +16,10 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 15
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
 
+    RATE_LIMIT_ENABLED: bool = True
+    MAX_FAILED_LOGINS: int = 5
+    LOCKOUT_MINUTES: int = 15
+
     @model_validator(mode="after")
     def check_secret_key(self):
         if len(self.SECRET_KEY) < 32:

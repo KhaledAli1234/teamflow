@@ -35,12 +35,26 @@ def _issue_tokens(db: Session, user_id: int, family_id: str | None = None) -> To
 
 
 def login(db: Session, email: str, password: str) -> Token:
+    now = _now()
     user = users_repository.get_by_email(db, email.strip().lower())
+
+    if user and user.locked_until and user.locked_until > now:
+        raise UnauthorizedError("Account temporarily locked. Try again later.")
+
     password_ok = verify_password(password, user.hashed_password if user else DUMMY_HASH)
     if not user or not password_ok:
+        if user:
+            user.failed_login_attempts += 1
+            if user.failed_login_attempts >= settings.MAX_FAILED_LOGINS:
+                user.locked_until = now + timedelta(minutes=settings.LOCKOUT_MINUTES)
+                user.failed_login_attempts = 0
+            db.commit()
         raise UnauthorizedError("Incorrect email or password")
     if not user.is_active:
         raise ForbiddenError("Account is disabled")
+
+    user.failed_login_attempts = 0
+    user.locked_until = None
     tokens = _issue_tokens(db, user.id)
     db.commit()
     return tokens
