@@ -39,6 +39,11 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
+      - name: Lint with ruff
+        run: |
+          pip install ruff
+          ruff check app
+
       - name: Setup test database
         run: |
           PGPASSWORD=teamflow_pass psql -h localhost -p 5433 -U teamflow -d teamflow -c "CREATE DATABASE teamflow_test;"
