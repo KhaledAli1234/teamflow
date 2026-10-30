@@ -24,6 +24,15 @@ class Settings(BaseSettings):
     FRONTEND_URL: str = "http://localhost:3000"
     CORS_ORIGINS: list[str] = ["http://localhost:3000"]
 
+    REDIS_URL: str = "redis://localhost:6379/0"
+
+    SMTP_HOST: str = "localhost"
+    SMTP_PORT: int = 1025
+    SMTP_USER: str = ""
+    SMTP_PASSWORD: str = ""
+    SMTP_USE_TLS: bool = False
+    EMAIL_FROM: str = "TeamFlow <no-reply@teamflow.local>"
+
     @model_validator(mode="after")
     def check_secret_key(self):
         if len(self.SECRET_KEY) < 32:

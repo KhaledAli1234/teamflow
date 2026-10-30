@@ -16,6 +16,7 @@ from app.core.security import (
 )
 from app.modules.auth import repository
 from app.modules.auth.schemas import ChangePasswordRequest, ResetPasswordRequest, Token
+from app.modules.auth.tasks import send_password_reset_email
 from app.modules.users import repository as users_repository
 from app.modules.users.models import User
 
@@ -100,6 +101,7 @@ def logout_all(db: Session, user: User) -> None:
     repository.revoke_all_for_user(db, user.id, _now())
     db.commit()
 
+
 def change_password(db: Session, user: User, data: ChangePasswordRequest) -> None:
     if not verify_password(data.current_password, user.hashed_password):
         raise UnauthorizedError("Current password is incorrect")
@@ -127,11 +129,10 @@ def forgot_password(db: Session, email: str) -> None:
         expires_at=now + timedelta(minutes=settings.PASSWORD_RESET_EXPIRE_MINUTES),
     )
     db.commit()
+    reset_link = f"{settings.FRONTEND_URL}/reset-password?token={raw}"
     if settings.ENVIRONMENT != "production":
-        logger.warning(
-            "Password reset link: %s/reset-password?token=%s", settings.FRONTEND_URL, raw
-        )
-    # TODO: إرسال إيميل حقيقي (هنوصّله مع الـ background jobs)
+        logger.warning("Password reset link: %s", reset_link)
+    send_password_reset_email.delay(user.email, reset_link)
 
 
 def reset_password(db: Session, data: ResetPasswordRequest) -> None:

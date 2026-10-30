@@ -1,5 +1,8 @@
 import os
+
 os.environ["RATE_LIMIT_ENABLED"] = "false"
+from unittest.mock import patch
+
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, text
@@ -9,14 +12,14 @@ from app.core.config import settings
 from app.db.base import Base
 from app.db.session import get_db
 from app.main import app
-from app.modules.teams import models as teams_models  # noqa: F401
-from app.modules.users import models as users_models  # noqa: F401
+from app.modules.activity import models as activity_models  # noqa: F401
+from app.modules.auth import models as auth_models  # noqa: F401
+from app.modules.comments import models as comments_models  # noqa: F401
+from app.modules.notifications import models as notifications_models  # noqa: F401
 from app.modules.projects import models as projects_models  # noqa: F401
 from app.modules.tasks import models as tasks_models  # noqa: F401
-from app.modules.comments import models as comments_models  # noqa: F401
-from app.modules.activity import models as activity_models  # noqa: F401
-from app.modules.notifications import models as notifications_models  # noqa: F401
-from app.modules.auth import models as auth_models  # noqa: F401
+from app.modules.teams import models as teams_models  # noqa: F401
+from app.modules.users import models as users_models  # noqa: F401
 
 TEST_DATABASE_URL = settings.DATABASE_URL.rsplit("/", 1)[0] + "/teamflow_test"
 
@@ -52,3 +55,8 @@ def client(db):
     with TestClient(app) as test_client:
         yield test_client
     app.dependency_overrides.clear()
+
+@pytest.fixture(autouse=True)
+def mock_reset_email():
+    with patch("app.modules.auth.service.send_password_reset_email") as mock_task:
+        yield mock_task.delay

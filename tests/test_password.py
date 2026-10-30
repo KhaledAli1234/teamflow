@@ -2,8 +2,10 @@ from datetime import datetime, timedelta, timezone
 
 from sqlalchemy import select
 
+from app.core.config import settings
 from app.core.security import generate_refresh_token
 from app.modules.auth import repository
+from app.modules.auth.tasks import _build_reset_email
 from app.modules.users.models import User
 
 API = "/api/v1"
@@ -142,3 +144,41 @@ def test_reset_clears_lockout(client, db):
         f"{API}/auth/reset-password", json={"token": raw, "new_password": NEW_PASSWORD}
     )
     assert login(client, NEW_PASSWORD).status_code == 200
+
+def test_forgot_password_queues_email_for_known_user(client, mock_reset_email):
+    register_and_login(client)
+    response = client.post(f"{API}/auth/forgot-password", json={"email": EMAIL})
+    assert response.status_code == 200
+    mock_reset_email.assert_called_once()
+    to_email, reset_link = mock_reset_email.call_args.args
+    assert to_email == EMAIL
+    assert reset_link.startswith(f"{settings.FRONTEND_URL}/reset-password?token=")
+
+
+def test_forgot_password_does_not_queue_email_for_unknown_email(client, mock_reset_email):
+    register_and_login(client)
+    response = client.post(
+        f"{API}/auth/forgot-password", json={"email": "ghost@example.com"}
+    )
+    assert response.status_code == 200
+    mock_reset_email.assert_not_called()
+
+
+def test_link_from_email_resets_password(client, mock_reset_email):
+    register_and_login(client)
+    client.post(f"{API}/auth/forgot-password", json={"email": EMAIL})
+    _, reset_link = mock_reset_email.call_args.args
+    token = reset_link.split("token=")[1]
+    response = client.post(
+        f"{API}/auth/reset-password", json={"token": token, "new_password": NEW_PASSWORD}
+    )
+    assert response.status_code == 204
+    assert login(client, NEW_PASSWORD).status_code == 200
+
+
+def test_reset_email_contains_recipient_and_link():
+    link = "http://localhost:3000/reset-password?token=abc123"
+    msg = _build_reset_email("user@example.com", link)
+    assert msg["To"] == "user@example.com"
+    assert link in msg.get_body(preferencelist=("plain",)).get_content()
+    assert link in msg.get_body(preferencelist=("html",)).get_content()
