@@ -20,7 +20,11 @@ def test_create_team_makes_creator_admin(client):
     admin = make_user(client, "admin@example.com")
     response = make_team(client, admin)
     assert response.status_code == 201
-    members = client.get(f"{API}/teams/1/members", headers=admin).json()
+    res = client.get(f"{API}/teams/1/members", headers=admin).json()
+    assert res["total"] == 1
+    assert res["page"] == 1
+    assert res["page_size"] == 20
+    members = res["items"]
     assert len(members) == 1
     assert members[0]["role"] == "admin"
 
@@ -34,7 +38,11 @@ def test_list_only_my_teams(client):
     b = make_user(client, "b@example.com")
     make_team(client, a, "A team")
     make_team(client, b, "B team")
-    names = [t["name"] for t in client.get(f"{API}/teams", headers=a).json()]
+    res = client.get(f"{API}/teams", headers=a).json()
+    assert res["total"] == 1
+    assert res["page"] == 1
+    assert res["page_size"] == 20
+    names = [t["name"] for t in res["items"]]
     assert names == ["A team"]
 
 

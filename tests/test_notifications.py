@@ -27,7 +27,8 @@ def setup(client):
 
 
 def notes(client, headers, **params):
-    return client.get(f"{API}/notifications", headers=headers, params=params).json()
+    res = client.get(f"{API}/notifications", headers=headers, params=params).json()
+    return res["items"]
 
 
 def test_assignment_notifies_assignee(client):
@@ -35,7 +36,11 @@ def test_assignment_notifies_assignee(client):
     client.post(
         f"{API}/projects/1/tasks", json={"title": "T", "assignee_id": 2}, headers=admin
     )
-    result = notes(client, member)
+    raw = client.get(f"{API}/notifications", headers=member).json()
+    assert raw["total"] == 1
+    assert raw["page"] == 1
+    assert raw["page_size"] == 20
+    result = raw["items"]
     assert len(result) == 1
     assert result[0]["type"] == "task.assigned"
     assert result[0]["is_read"] is False

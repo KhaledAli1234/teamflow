@@ -53,7 +53,11 @@ def test_list_comments(client):
     admin, member = setup_task(client)
     comment(client, admin, "one")
     comment(client, member, "two")
-    bodies = [c["body"] for c in client.get(f"{API}/tasks/1/comments", headers=admin).json()]
+    res = client.get(f"{API}/tasks/1/comments", headers=admin).json()
+    assert res["total"] == 2
+    assert res["page"] == 1
+    assert res["page_size"] == 20
+    bodies = [c["body"] for c in res["items"]]
     assert bodies == ["one", "two"]
 
 

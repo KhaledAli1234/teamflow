@@ -27,13 +27,17 @@ def setup(client):
 
 
 def actions(client, headers):
-    logs = client.get(f"{API}/projects/1/activity", headers=headers).json()
-    return [entry["action"] for entry in logs]
+    res = client.get(f"{API}/projects/1/activity", headers=headers).json()
+    return [entry["action"] for entry in res["items"]]
 
 
 def test_task_creation_is_logged(client):
     admin, _ = setup(client)
     client.post(f"{API}/projects/1/tasks", json={"title": "T"}, headers=admin)
+    res = client.get(f"{API}/projects/1/activity", headers=admin).json()
+    assert res["total"] == 1
+    assert res["page"] == 1
+    assert res["page_size"] == 20
     assert actions(client, admin) == ["task.created"]
 
 
@@ -43,7 +47,9 @@ def test_status_change_is_logged_with_details(client):
         f"{API}/projects/1/tasks", json={"title": "T", "assignee_id": 2}, headers=admin
     )
     client.patch(f"{API}/tasks/1/status", json={"status": "done"}, headers=member)
-    logs = client.get(f"{API}/projects/1/activity", headers=admin).json()
+    res = client.get(f"{API}/projects/1/activity", headers=admin).json()
+    logs = res["items"]
+    assert res["total"] == 2
     assert logs[0]["action"] == "task.status_changed"
     assert logs[0]["actor_id"] == 2
     assert logs[0]["details"] == {"from": "todo", "to": "done"}
