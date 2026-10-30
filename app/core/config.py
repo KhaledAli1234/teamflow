@@ -20,6 +20,9 @@ class Settings(BaseSettings):
     MAX_FAILED_LOGINS: int = 5
     LOCKOUT_MINUTES: int = 15
 
+    PASSWORD_RESET_EXPIRE_MINUTES: int = 30
+    FRONTEND_URL: str = "http://localhost:3000"
+
     @model_validator(mode="after")
     def check_secret_key(self):
         if len(self.SECRET_KEY) < 32:

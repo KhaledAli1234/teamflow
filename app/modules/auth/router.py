@@ -4,12 +4,19 @@ from sqlalchemy.orm import Session
 from app.common.dependencies import get_current_user
 from app.db.session import get_db
 from app.modules.auth import service as auth_service
-from app.modules.auth.schemas import RefreshRequest, Token
 from app.modules.users import service as users_service
 from app.modules.users.models import User
 from app.modules.users.schemas import UserCreate, UserRead
 from fastapi import APIRouter, Depends, Request, Response, status
 from app.core.rate_limit import limiter
+from app.modules.auth.schemas import (
+    ChangePasswordRequest,
+    ForgotPasswordRequest,
+    MessageResponse,
+    RefreshRequest,
+    ResetPasswordRequest,
+    Token,
+)
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -43,4 +50,31 @@ def logout(data: RefreshRequest, db: Session = Depends(get_db)):
 @router.post("/logout-all", status_code=status.HTTP_204_NO_CONTENT)
 def logout_all(db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     auth_service.logout_all(db, user)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+@router.post("/change-password", status_code=status.HTTP_204_NO_CONTENT)
+def change_password(
+    data: ChangePasswordRequest,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    auth_service.change_password(db, user, data)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.post("/forgot-password", response_model=MessageResponse)
+@limiter.limit("3/minute")
+def forgot_password(
+    request: Request, data: ForgotPasswordRequest, db: Session = Depends(get_db)
+):
+    auth_service.forgot_password(db, data.email)
+    return MessageResponse(message="If the email exists, a reset link has been sent.")
+
+
+@router.post("/reset-password", status_code=status.HTTP_204_NO_CONTENT)
+@limiter.limit("5/minute")
+def reset_password(
+    request: Request, data: ResetPasswordRequest, db: Session = Depends(get_db)
+):
+    auth_service.reset_password(db, data)
     return Response(status_code=status.HTTP_204_NO_CONTENT)

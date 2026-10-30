@@ -5,6 +5,8 @@ from sqlalchemy.orm import Session
 
 from app.modules.auth.models import RefreshToken
 
+from app.modules.auth.models import PasswordResetToken
+
 
 def create(
     db: Session, *, user_id: int, token_hash: str, family_id: str, expires_at: datetime
@@ -38,4 +40,30 @@ def revoke_all_for_user(db: Session, user_id: int, now: datetime) -> None:
         update(RefreshToken)
         .where(RefreshToken.user_id == user_id, RefreshToken.revoked_at.is_(None))
         .values(revoked_at=now)
+    )
+
+def create_reset_token(
+    db: Session, *, user_id: int, token_hash: str, expires_at: datetime
+) -> PasswordResetToken:
+    token = PasswordResetToken(
+        user_id=user_id, token_hash=token_hash, expires_at=expires_at
+    )
+    db.add(token)
+    db.flush()
+    return token
+
+
+def get_reset_token(db: Session, token_hash: str) -> PasswordResetToken | None:
+    return db.scalar(
+        select(PasswordResetToken)
+        .where(PasswordResetToken.token_hash == token_hash)
+        .with_for_update()
+    )
+
+
+def invalidate_reset_tokens(db: Session, user_id: int, now: datetime) -> None:
+    db.execute(
+        update(PasswordResetToken)
+        .where(PasswordResetToken.user_id == user_id, PasswordResetToken.used_at.is_(None))
+        .values(used_at=now)
     )

@@ -3,7 +3,7 @@ from datetime import datetime, timedelta, timezone
 
 from sqlalchemy.orm import Session
 
-from app.common.exceptions import ForbiddenError, UnauthorizedError
+from app.common.exceptions import ForbiddenError, UnauthorizedError, ConflictError
 from app.core.config import settings
 from app.core.security import (
     DUMMY_HASH,
@@ -16,6 +16,13 @@ from app.modules.auth import repository
 from app.modules.auth.schemas import Token
 from app.modules.users import repository as users_repository
 from app.modules.users.models import User
+
+import logging
+
+from app.core.security import hash_password
+from app.modules.auth.schemas import ChangePasswordRequest, ResetPasswordRequest
+
+logger = logging.getLogger(__name__)
 
 
 def _now() -> datetime:
@@ -92,4 +99,51 @@ def logout(db: Session, raw_token: str) -> None:
 
 def logout_all(db: Session, user: User) -> None:
     repository.revoke_all_for_user(db, user.id, _now())
+    db.commit()
+
+def change_password(db: Session, user: User, data: ChangePasswordRequest) -> None:
+    if not verify_password(data.current_password, user.hashed_password):
+        raise UnauthorizedError("Current password is incorrect")
+    if data.current_password == data.new_password:
+        raise ConflictError("New password must be different")
+    now = _now()
+    user.hashed_password = hash_password(data.new_password)
+    repository.revoke_all_for_user(db, user.id, now)
+    db.commit()
+
+
+def forgot_password(db: Session, email: str) -> None:
+    user = users_repository.get_by_email(db, email.strip().lower())
+    if not user or not user.is_active:
+        return  # نفس الرد دايمًا، علشان ما نكشفش الإيميلات
+    now = _now()
+    repository.invalidate_reset_tokens(db, user.id, now)
+    raw, token_hash = generate_refresh_token()
+    repository.create_reset_token(
+        db,
+        user_id=user.id,
+        token_hash=token_hash,
+        expires_at=now + timedelta(minutes=settings.PASSWORD_RESET_EXPIRE_MINUTES),
+    )
+    db.commit()
+    if settings.ENVIRONMENT != "production":
+        logger.warning(
+            "Password reset link: %s/reset-password?token=%s", settings.FRONTEND_URL, raw
+        )
+    # TODO: إرسال إيميل حقيقي (هنوصّله مع الـ background jobs)
+
+
+def reset_password(db: Session, data: ResetPasswordRequest) -> None:
+    stored = repository.get_reset_token(db, hash_token(data.token))
+    now = _now()
+    if not stored or stored.used_at is not None or stored.expires_at <= now:
+        raise UnauthorizedError("Invalid or expired reset token")
+    user = users_repository.get_by_id(db, stored.user_id)
+    if not user or not user.is_active:
+        raise UnauthorizedError("Invalid or expired reset token")
+    stored.used_at = now
+    user.hashed_password = hash_password(data.new_password)
+    user.failed_login_attempts = 0
+    user.locked_until = None
+    repository.revoke_all_for_user(db, user.id, now)
     db.commit()

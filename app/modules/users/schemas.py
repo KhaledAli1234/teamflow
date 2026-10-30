@@ -7,6 +7,15 @@ COMMON_PASSWORDS = {
     "qwertyuiop", "iloveyou", "admin123", "welcome1", "letmein123",
 }
 
+def validate_password_strength(value: str) -> str:
+    if value.strip() != value:
+        raise ValueError("Password cannot start or end with spaces")
+    if value.lower() in COMMON_PASSWORDS:
+        raise ValueError("Password is too common")
+    if len(set(value)) < 4:
+        raise ValueError("Password is too simple")
+    return value
+
 class UserCreate(BaseModel):
     email: EmailStr
     full_name: str = Field(min_length=1, max_length=100)
@@ -23,13 +32,7 @@ class UserCreate(BaseModel):
     @field_validator("password")
     @classmethod
     def strong_enough(cls, value: str) -> str:
-        if value.strip() != value:
-            raise ValueError("Password cannot start or end with spaces")
-        if value.lower() in COMMON_PASSWORDS:
-            raise ValueError("Password is too common")
-        if len(set(value)) < 4:
-            raise ValueError("Password is too simple")
-        return value
+        return validate_password_strength(value)
 
 class UserRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
