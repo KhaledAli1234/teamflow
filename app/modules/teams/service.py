@@ -44,10 +44,10 @@ def create_team(db: Session, data: TeamCreate, user: User) -> Team:
 def list_my_teams(
     db: Session, user: User, *, page: int = 1, page_size: int = 20
 ) -> Page[TeamRead]:
-    all_teams = repository.list_teams_for_user(db, user.id)
-    total = len(all_teams)
-    start = (page - 1) * page_size
-    items = all_teams[start : start + page_size]
+    total = repository.count_teams_for_user(db, user.id)
+    items = repository.list_teams_for_user(
+        db, user.id, limit=page_size, offset=(page - 1) * page_size
+    )
     return Page(items=items, total=total, page=page, page_size=page_size)
 
 
@@ -75,10 +75,10 @@ def list_members(
     db: Session, team_id: int, user: User, *, page: int = 1, page_size: int = 20
 ) -> Page[MemberRead]:
     require_member(db, team_id, user)
-    all_members = repository.list_members(db, team_id)
-    total = len(all_members)
-    start = (page - 1) * page_size
-    items = all_members[start : start + page_size]
+    total = repository.count_members(db, team_id)
+    items = repository.list_members(
+        db, team_id, limit=page_size, offset=(page - 1) * page_size
+    )
     return Page(items=items, total=total, page=page, page_size=page_size)
 
 

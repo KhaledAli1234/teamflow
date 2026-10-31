@@ -182,3 +182,10 @@ def test_reset_email_contains_recipient_and_link():
     assert msg["To"] == "user@example.com"
     assert link in msg.get_body(preferencelist=("plain",)).get_content()
     assert link in msg.get_body(preferencelist=("html",)).get_content()
+
+def test_forgot_password_survives_broker_outage(client, mock_reset_email):
+    register_and_login(client)
+    mock_reset_email.side_effect = ConnectionError("redis is down")
+    response = client.post(f"{API}/auth/forgot-password", json={"email": EMAIL})
+    assert response.status_code == 200
+    assert response.json() == {"message": "If the email exists, a reset link has been sent."}

@@ -152,3 +152,18 @@ def test_admin_deletes_team(client):
     team_id = make_team(client, admin).json()["id"]
     assert client.delete(f"{API}/teams/{team_id}", headers=admin).status_code == 204
     assert client.get(f"{API}/teams/{team_id}", headers=admin).status_code == 404
+
+def test_teams_and_members_are_paginated_in_the_database(client):
+    admin = make_user(client, "pager@example.com")
+    for i in range(3):
+        make_team(client, admin, f"Team {i}")
+
+    first = client.get(f"{API}/teams?page=1&page_size=2", headers=admin).json()
+    second = client.get(f"{API}/teams?page=2&page_size=2", headers=admin).json()
+    assert first["total"] == second["total"] == 3
+    assert [t["name"] for t in first["items"]] == ["Team 0", "Team 1"]
+    assert [t["name"] for t in second["items"]] == ["Team 2"]
+
+    members = client.get(f"{API}/teams/1/members?page=2&page_size=1", headers=admin).json()
+    assert members["total"] == 1
+    assert members["items"] == []

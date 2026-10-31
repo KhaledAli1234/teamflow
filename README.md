@@ -3,6 +3,7 @@
 A production-grade project & task management REST API built with **Python 3.10**, **FastAPI**, **PostgreSQL**, **SQLAlchemy 2.0**, and **Alembic**. Inspired by Trello/Jira.
 
 ![CI](https://github.com/KhaledAli1234/teamflow/actions/workflows/ci.yml/badge.svg)
+![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)
 
 ---
 
@@ -10,7 +11,7 @@ A production-grade project & task management REST API built with **Python 3.10**
 
 | Layer | Technology |
 |-------|-----------|
-| Framework | FastAPI 0.110+ |
+| Framework | FastAPI |
 | ORM | SQLAlchemy 2.0 (mapped columns) |
 | Database | PostgreSQL 16 |
 | Migrations | Alembic |
@@ -38,7 +39,7 @@ app/
     ├── users/         # GET /me, PATCH /me
     ├── teams/         # Teams + member management (role-based)
     ├── projects/      # Projects + project member management
-    ├── tasks/         # Tasks with filters, pagination, status transitions
+    ├── tasks/         # Tasks with filters, pagination, status updates
     ├── comments/      # Task comments
     ├── activity/      # Immutable activity log per project
     ├── dashboard/     # Team & project progress stats
@@ -65,6 +66,8 @@ API (forgot_password) → Redis (queue) → Celery worker → SMTP → Mailpit /
 | `PROJECT_MANAGER` | Team | Create/update projects and tasks; add project members |
 | `MEMBER` | Team | View and work on tasks they're assigned to |
 
+The user who creates a team becomes its first `ADMIN` automatically; other roles are granted by an admin.
+
 Projects also have their own member list. Managers/admins see all projects in a team; regular members see only the projects they're assigned to.
 
 ---
@@ -74,8 +77,8 @@ Projects also have their own member list. Managers/admins see all projects in a 
 - **Refresh token rotation with family revocation:** Every refresh invalidates the old token and issues a new one. Token reuse (replay attack) revokes the entire family for that user.
 - **Argon2id** for password hashing — the current OWASP recommendation over bcrypt.
 - **Account lockout** after configurable failed attempts (`MAX_FAILED_LOGINS`, `LOCKOUT_MINUTES`).
-- **Timing attack mitigation:** `forgot_password` takes the same path whether the email exists or not, and always returns the same response.
-- **Password reset by email, off the request path:** the API responds immediately; a Celery worker sends the email (with automatic retry and backoff). The reset token is never written to logs in production.
+- **No user enumeration via `forgot_password`:** the endpoint always returns the same status and body, whether or not the email exists. (Response *timing* is not fully equalized; see limitations.)
+- **Password reset by email, off the request path:** the API responds immediately; a Celery worker sends the email (with automatic retry and backoff). If the broker is down, the failure is logged and the public response is unchanged. The reset token is never written to logs in production.
 - **Race condition protection:** Admin role demotions and member removals use `SELECT ... FOR UPDATE` to prevent a concurrent request from leaving a team with zero admins.
 - **LIKE injection protection:** Search queries escape `%`, `_`, and `\` before building LIKE predicates.
 
@@ -91,8 +94,9 @@ Prerequisites: Docker + Docker Compose.
 git clone https://github.com/KhaledAli1234/teamflow.git
 cd teamflow
 docker compose up -d --build
-docker compose exec api alembic upgrade head   # first run only: create the tables
 ```
+
+The `api` container runs `alembic upgrade head` on startup, so no manual migration step is needed.
 
 | Service | URL / Port |
 |---------|-----------|
@@ -101,7 +105,7 @@ docker compose exec api alembic upgrade head   # first run only: create the tabl
 | PostgreSQL | localhost:5433 |
 | Redis | localhost:6379 |
 
-The compose file starts `db`, `redis`, `mailpit`, `api`, and a Celery `worker`.
+The compose file starts `db`, `redis`, `mailpit`, `api` (health-checked via `GET /health`), and a Celery `worker`.
 Compose sets its own environment variables (including a dev `SECRET_KEY`); change them before any real deployment.
 
 ### Option B: Run the API on your machine
@@ -141,15 +145,64 @@ celery -A app.core.celery_app worker --loglevel=info
 
 ---
 
+### Quick tour (curl)
+
+```bash
+API=http://localhost:8000/api/v1
+
+# 1. Register and log in (login is an OAuth2 form: username = email)
+curl -X POST $API/auth/register -H "Content-Type: application/json" \
+  -d '{"email":"alice@example.com","full_name":"Alice","password":"S3cure-pass!"}'
+TOKEN=$(curl -s -X POST $API/auth/login \
+  -d "username=alice@example.com&password=S3cure-pass!" | python -c "import sys,json; print(json.load(sys.stdin)['access_token'])")
+AUTH="Authorization: Bearer $TOKEN"
+
+# 2. Create a team (the caller becomes its ADMIN), a project, and a task
+curl -X POST $API/teams -H "$AUTH" -H "Content-Type: application/json" -d '{"name":"Backend Team"}'
+curl -X POST $API/teams/1/projects -H "$AUTH" -H "Content-Type: application/json" -d '{"name":"Website"}'
+curl -X POST $API/projects/1/tasks -H "$AUTH" -H "Content-Type: application/json" \
+  -d '{"title":"Design schema","priority":"high"}'
+
+# 3. Move the task forward and check the dashboard
+curl -X PATCH $API/tasks/1/status -H "$AUTH" -H "Content-Type: application/json" -d '{"status":"in_progress"}'
+curl $API/teams/1/dashboard -H "$AUTH"
+```
+
+Interactive docs: http://localhost:8000/docs
+
+---
+
+## Data Model
+
+```mermaid
+erDiagram
+    USERS ||--o{ TEAM_MEMBERS : "joins"
+    TEAMS ||--o{ TEAM_MEMBERS : "has"
+    TEAMS ||--o{ PROJECTS : "owns"
+    PROJECTS ||--o{ PROJECT_MEMBERS : "has"
+    USERS ||--o{ PROJECT_MEMBERS : "joins"
+    PROJECTS ||--o{ TASKS : "contains"
+    USERS ||--o{ TASKS : "assigned to"
+    TASKS ||--o{ COMMENTS : "has"
+    USERS ||--o{ COMMENTS : "writes"
+    PROJECTS ||--o{ ACTIVITY_LOGS : "records"
+    USERS ||--o{ NOTIFICATIONS : "receives"
+    USERS ||--o{ REFRESH_TOKENS : "owns"
+    USERS ||--o{ PASSWORD_RESET_TOKENS : "owns"
+```
+
+---
+
 ## Running Tests
 
 ```bash
 # Requires the test database to exist: psql -c "CREATE DATABASE teamflow_test;"
+pip install -r requirements-dev.txt
 ruff check app tests
-pytest -v
+pytest -v --cov=app
 ```
 
-The test suite uses a dedicated `teamflow_test` database and truncates all tables after each test — no data leakage between tests. The Celery task is mocked in every test, so the suite needs neither Redis nor an SMTP server. Task arguments, the email template, and the full link-to-reset flow are covered by dedicated tests.
+The suite has 126 test functions and uses a dedicated `teamflow_test` database and truncates all tables after each test — no data leakage between tests. The Celery task is mocked in every test, so the suite needs neither Redis nor an SMTP server. Task arguments, the email template, and the full link-to-reset flow are covered by dedicated tests.
 
 ---
 
@@ -182,6 +235,7 @@ See [`.env.example`](.env.example) for all variables with comments. Key ones:
 
 | Resource | Endpoints |
 |----------|-----------|
+| Health | GET /health |
 | Auth | POST /register, /login, /refresh, /logout, /logout-all, /forgot-password, /reset-password, /change-password |
 | Users | GET /users/me, PATCH /users/me |
 | Teams | CRUD /teams, /teams/{id}/members |
@@ -200,10 +254,10 @@ All list endpoints are paginated (`?page=1&page_size=20`).
 
 GitHub Actions workflow (`.github/workflows/ci.yml`):
 1. Spins up PostgreSQL as a service container
-2. Lints with `ruff check app tests`
+2. Installs `requirements-dev.txt` and lints with `ruff check app tests`
 3. Runs `alembic upgrade head`
 4. Asserts `alembic check` (no undetected schema drift)
-5. Runs `pytest -v`
+5. Runs `pytest -v --cov=app`
 
 ---
 
@@ -216,3 +270,14 @@ GitHub Actions workflow (`.github/workflows/ci.yml`):
 - **File uploads:** No attachment support on tasks (common PM feature).
 - **Superuser role:** No system-level admin; roles are team-scoped only.
 - **Soft delete:** All deletes are hard deletes with cascade.
+- **Email verification:** Registration does not verify the email address.
+- **Access token revocation:** Logout and password change revoke refresh tokens, but an already-issued access token stays valid until it expires (15 minutes by default).
+- **Task status:** Any status can be set from any other; there is no enforced workflow.
+- **Registration enumeration:** `POST /register` reports that an email is already registered.
+- **Response timing:** `forgot_password` returns the same body for known and unknown emails, but timing is not equalized.
+
+---
+
+## License
+
+MIT, see [LICENSE](LICENSE).

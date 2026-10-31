@@ -17,14 +17,24 @@ def get_team(db: Session, team_id: int) -> Team | None:
     return db.get(Team, team_id)
 
 
-def list_teams_for_user(db: Session, user_id: int) -> list[Team]:
+def list_teams_for_user(
+    db: Session, user_id: int, *, limit: int | None = None, offset: int = 0
+) -> list[Team]:
     stmt = (
         select(Team)
         .join(TeamMember, TeamMember.team_id == Team.id)
         .where(TeamMember.user_id == user_id)
         .order_by(Team.id)
+        .offset(offset)
     )
+    if limit is not None:
+        stmt = stmt.limit(limit)
     return list(db.scalars(stmt))
+
+
+def count_teams_for_user(db: Session, user_id: int) -> int:
+    stmt = select(func.count()).select_from(TeamMember).where(TeamMember.user_id == user_id)
+    return db.scalar(stmt) or 0
 
 
 def get_membership(
@@ -38,8 +48,23 @@ def get_membership(
     return db.scalar(stmt)
 
 
-def list_members(db: Session, team_id: int) -> list[TeamMember]:
-    return list(db.scalars(select(TeamMember).where(TeamMember.team_id == team_id)))
+def list_members(
+    db: Session, team_id: int, *, limit: int | None = None, offset: int = 0
+) -> list[TeamMember]:
+    stmt = (
+        select(TeamMember)
+        .where(TeamMember.team_id == team_id)
+        .order_by(TeamMember.id)
+        .offset(offset)
+    )
+    if limit is not None:
+        stmt = stmt.limit(limit)
+    return list(db.scalars(stmt))
+
+
+def count_members(db: Session, team_id: int) -> int:
+    stmt = select(func.count()).select_from(TeamMember).where(TeamMember.team_id == team_id)
+    return db.scalar(stmt) or 0
 
 
 def count_admins(db: Session, team_id: int, *, for_update: bool = False) -> int:

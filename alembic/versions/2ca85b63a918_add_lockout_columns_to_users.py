@@ -1,7 +1,7 @@
 """add lockout columns to users
 
 Revision ID: 2ca85b63a918
-Revises: af4d35ad01d4
+Revises: 6c1859b49e51
 Create Date: 2026-10-30 13:51:48.183849
 
 """
@@ -13,7 +13,7 @@ import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision: str = '2ca85b63a918'
-down_revision: Union[str, Sequence[str], None] = 'af4d35ad01d4'
+down_revision: Union[str, Sequence[str], None] = '6c1859b49e51'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 

@@ -117,8 +117,8 @@ def forgot_password(db: Session, email: str) -> None:
     user = users_repository.get_by_email(db, email.strip().lower())
     now = _now()
     if not user or not user.is_active:
-        # Equalize timing to defend against user enumeration
-        hash_token(email)
+        # Same public response either way (no user enumeration through the body).
+        # Note: response timing is not fully equalized.
         return
     repository.invalidate_reset_tokens(db, user.id, now)
     raw, token_hash = generate_refresh_token()
@@ -132,7 +132,10 @@ def forgot_password(db: Session, email: str) -> None:
     reset_link = f"{settings.FRONTEND_URL}/reset-password?token={raw}"
     if settings.ENVIRONMENT != "production":
         logger.warning("Password reset link: %s", reset_link)
-    send_password_reset_email.delay(user.email, reset_link)
+    try:
+        send_password_reset_email.delay(user.email, reset_link)
+    except Exception:  # noqa: BLE001 - broker outage must not change the public response
+        logger.exception("Could not enqueue password reset email (broker unavailable?)")
 
 
 def reset_password(db: Session, data: ResetPasswordRequest) -> None:

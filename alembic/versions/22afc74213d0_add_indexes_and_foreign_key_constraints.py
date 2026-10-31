@@ -1,7 +1,7 @@
 """add_indexes_and_foreign_key_constraints
 
 Revision ID: 22afc74213d0
-Revises: 973e073b94f6
+Revises: 770066964e79
 Create Date: 2026-10-30 14:48:54.833415
 
 """
@@ -13,7 +13,7 @@ import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision: str = '22afc74213d0'
-down_revision: Union[str, Sequence[str], None] = '973e073b94f6'
+down_revision: Union[str, Sequence[str], None] = '770066964e79'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
