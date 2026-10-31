@@ -170,6 +170,12 @@ curl $API/teams/1/dashboard -H "$AUTH"
 
 Interactive docs: http://localhost:8000/docs
 
+## Screenshots
+
+| Swagger UI | Password-reset email (Mailpit) |
+|---|---|
+| ![Swagger UI](docs/images/swagger.png) | ![Mailpit](docs/images/mailpit.png) |
+
 ---
 
 ## Data Model
@@ -264,7 +270,7 @@ GitHub Actions workflow (`.github/workflows/ci.yml`):
 ## Known Limitations / Future Work
 
 - **Email provider:** Emails are verified against Mailpit in development. For production, point the `SMTP_*` variables at a real provider (SendGrid, SES, ...) and enable `SMTP_USE_TLS`.
-- **Broker outage handling:** If Redis is down, enqueueing the email task fails and the request returns an error. A fallback (catch, log, and retry later) is planned.
+- **Broker outage handling:** If Redis is down, the enqueue failure is logged and the request still returns the normal response, but the email is not sent and not retried later. A persistent outbox (or retry job) is a natural next step.
 - **Rate limiter:** Uses in-memory SlowAPI storage — not suitable for multi-worker deployments. Redis is now part of the stack, so switching to `storage_uri="redis://..."` is straightforward.
 - **More background jobs:** Only the password-reset email is a task so far (welcome email and notification emails are natural next candidates).
 - **File uploads:** No attachment support on tasks (common PM feature).

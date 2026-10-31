@@ -33,7 +33,7 @@ app = FastAPI(
     description=(
         "TeamFlow is a project & task management API inspired by Trello/Jira. "
         "Features: JWT auth with refresh-token rotation, team/project/task hierarchy, "
-        "real-time activity log, in-app notifications, and a live dashboard."
+        "per-project activity log, in-app notifications, and a team progress dashboard."
     ),
     version="1.0.0",
     debug=settings.DEBUG,
@@ -91,4 +91,4 @@ def health():
             db.execute(text("SELECT 1"))
     except Exception:
         return JSONResponse(status_code=503, content={"status": "error", "detail": "database unavailable"})
-    return {"status": "ok"}
+    return {"status": "ok"}
